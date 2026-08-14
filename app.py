@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 
 import pandas as pd
@@ -9,6 +10,36 @@ import streamlit as st
 from core import calculo, carga, comparacion, exportar, taxonomia
 
 st.set_page_config(page_title="Calculadora Ley REP · Mizos", page_icon="♻️", layout="wide")
+st.logo("assets/logo_mizos.png", size="large")
+
+
+def _credenciales_validas(usuario: str, password: str) -> bool:
+    try:
+        auth = st.secrets["auth"]
+    except Exception:
+        st.error(
+            "No hay credenciales configuradas (falta .streamlit/secrets.toml). "
+            "Contacta a quien administra la app."
+        )
+        return False
+    return usuario == auth["usuario"] and hashlib.sha256(password.encode()).hexdigest() == auth["password_hash"]
+
+
+if not st.session_state.get("autenticado", False):
+    st.image("assets/logo_mizos.png", width=200)
+    st.subheader("Iniciar sesión")
+    with st.form("login_form"):
+        usuario = st.text_input("Usuario")
+        password = st.text_input("Contraseña", type="password")
+        enviado = st.form_submit_button("Ingresar", type="primary")
+    if enviado:
+        if _credenciales_validas(usuario, password):
+            st.session_state.autenticado = True
+            st.rerun()
+        else:
+            st.error("Usuario o contraseña incorrectos.")
+    st.stop()
+
 
 # --- Paleta fija (identidad, no ranking) para las 6 subcategorías principales ---
 PALETA_SUBCAT = {
@@ -49,15 +80,19 @@ def fuente_base_maestra():
     return DATA_DEFAULT["base_maestra"] if os.path.exists(DATA_DEFAULT["base_maestra"]) else None
 
 
-for key in ("homolog_override", "base_maestra_override", "rigidez_overrides", "empresa_info"):
+for key in ("homolog_override", "base_maestra_override", "empresa_info"):
     if key not in st.session_state:
-        st.session_state[key] = {} if key == "rigidez_overrides" else None
+        st.session_state[key] = None
 
 
 # ---------------------------------------------------------------------
 # Sidebar: datos de la empresa (van en el encabezado de la declaración)
 # ---------------------------------------------------------------------
 with st.sidebar:
+    if st.button("Cerrar sesión"):
+        st.session_state.autenticado = False
+        st.rerun()
+
     st.header("Datos de la empresa")
     razon_social = st.text_input("Nombre productor / Razón social", value="COMERCIAL VIVE SANO SPA")
     responsable = st.text_input("Responsable", value="")
@@ -129,7 +164,12 @@ with tab_datos:
 # TAB: Calcular declaración
 # =======================================================================
 with tab_calc:
-    st.subheader("1. Sube el Informe de Ventas del periodo")
+    st.subheader("1. Nombre del periodo")
+    periodo_label = st.text_input(
+        "Nombre del periodo (para el archivo de descarga)", value="", key="periodo_label"
+    )
+
+    st.subheader("2. Sube el Informe de Ventas del periodo")
     archivo_ventas = st.file_uploader(
         "Informe de Ventas Consolidado (.xlsx)", type=["xlsx"], key="up_ventas"
     )
@@ -153,40 +193,10 @@ with tab_calc:
 
         st.success(f"{len(ventas_df)} líneas de venta leídas.")
 
-        st.subheader("2. Confirma la clasificación Flexible / Rígido")
-        st.caption(
-            "La ficha de envases no siempre indica si un componente plástico es flexible o "
-            "rígido, y RESIMPLE exige esa distinción. Revisa esta clasificación antes de calcular "
-            "— viene con un valor por defecto según el tipo de componente."
-        )
         componentes = carga.componentes_que_requieren_rigidez(base_df)
-        if componentes:
-            defaults = calculo.rigidez_por_defecto(componentes)
-            tabla_rigidez = pd.DataFrame(
-                {
-                    "Componente": componentes,
-                    "Clasificación": [
-                        st.session_state.rigidez_overrides.get(c, defaults[c]) for c in componentes
-                    ],
-                }
-            )
-            editado = st.data_editor(
-                tabla_rigidez,
-                column_config={
-                    "Clasificación": st.column_config.SelectboxColumn(options=["Flexible", "Rígido"]),
-                    "Componente": st.column_config.TextColumn(disabled=True),
-                },
-                hide_index=True,
-                use_container_width=True,
-                key="editor_rigidez",
-            )
-            rigidez_map = dict(zip(editado["Componente"], editado["Clasificación"]))
-            st.session_state.rigidez_overrides.update(rigidez_map)
-        else:
-            rigidez_map = {}
+        rigidez_map = calculo.rigidez_por_defecto(componentes)
 
         st.subheader("3. Calcular")
-        periodo_label = st.text_input("Nombre del periodo (para el archivo de descarga)", value="")
 
         if st.button("Calcular declaración", type="primary"):
             resultado = calculo.calcular(
@@ -236,8 +246,9 @@ with tab_calc:
             fig.update_xaxes(categoryorder="array", categoryarray=taxonomia.SUBCATEGORIAS_ORDEN)
             st.plotly_chart(fig, use_container_width=True)
 
-            with st.expander("Ver detalle agregado"):
-                st.dataframe(resultado.agregado, use_container_width=True)
+            st.markdown("**Detalle agregado**")
+            columnas_visibles = ["Categoría", "Materiales", "toneladas"]
+            st.dataframe(resultado.agregado[columnas_visibles], use_container_width=True)
 
             nombre_archivo = f"Declaracion_{(st.session_state.get('ultimo_periodo') or 'REP').replace(' ', '_')}.xlsx"
             datos_xlsx = exportar.generar_bytes(resultado, st.session_state.empresa_info)
