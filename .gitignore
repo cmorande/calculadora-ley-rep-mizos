@@ -1,0 +1,16 @@
+# Datos maestros de producto (packaging, SKUs) — no van al repo por defecto.
+# Sube tu propia copia via la pestaña "Datos maestros" de la app.
+data/*.xlsx
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Sistema
+.DS_Store
+Thumbs.db
