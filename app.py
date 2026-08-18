@@ -10,7 +10,7 @@ import streamlit as st
 from core import calculo, carga, comparacion, exportar, taxonomia
 
 st.set_page_config(page_title="Calculadora Ley REP · Mizos", page_icon="♻️", layout="wide")
-st.logo("assets/logo_mizos.png", size="large")
+st.logo("assets/logo_ley_rep_mizos.png", size="large")
 
 
 def _credenciales_validas(usuario: str, password: str) -> bool:
@@ -26,18 +26,20 @@ def _credenciales_validas(usuario: str, password: str) -> bool:
 
 
 if not st.session_state.get("autenticado", False):
-    st.image("assets/logo_mizos.png", width=200)
-    st.subheader("Iniciar sesión")
-    with st.form("login_form"):
-        usuario = st.text_input("Usuario")
-        password = st.text_input("Contraseña", type="password")
-        enviado = st.form_submit_button("Ingresar", type="primary")
-    if enviado:
-        if _credenciales_validas(usuario, password):
-            st.session_state.autenticado = True
-            st.rerun()
-        else:
-            st.error("Usuario o contraseña incorrectos.")
+    col_izq, col_centro, col_der = st.columns([1, 1, 1])
+    with col_centro:
+        st.image("assets/logo_ley_rep_mizos.png", width=220)
+        st.subheader("Iniciar sesión")
+        with st.form("login_form"):
+            usuario = st.text_input("Usuario")
+            password = st.text_input("Contraseña", type="password")
+            enviado = st.form_submit_button("Ingresar", type="primary")
+        if enviado:
+            if _credenciales_validas(usuario, password):
+                st.session_state.autenticado = True
+                st.rerun()
+            else:
+                st.error("Usuario o contraseña incorrectos.")
     st.stop()
 
 
