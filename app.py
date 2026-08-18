@@ -126,10 +126,10 @@ with tab_calc:
         "Nombre del periodo (para el archivo de descarga)", value="", key="periodo_label"
     )
 
-    st.subheader("2. Verifica los datos maestros")
+    st.subheader("2. Sube los datos maestros")
     st.info(
-        "Antes de calcular, revisa en la pestaña '⚙️ Datos maestros' que la Tabla de "
-        "Homologación y la Base Maestra de Envases estén con la última versión."
+        "Antes de calcular, sube en la pestaña '⚙️ Datos maestros' la última versión de la "
+        "Tabla de Homologación y la Base Maestra de Envases (se cargan solo para esta sesión)."
     )
 
     st.subheader("3. Sube el Informe de Ventas del periodo")
@@ -232,9 +232,9 @@ with tab_calc:
 with tab_datos:
     st.subheader("Tabla de Homologación y Base Maestra de Envases")
     st.write(
-        "La app trae cargadas las tablas actuales de Mizos. Si agregaste productos nuevos "
-        "o cambió alguna ficha de envase, sube aquí la versión actualizada — se usará solo "
-        "en esta sesión, no reemplaza el archivo original del proyecto."
+        "Sube aquí la Tabla de Homologación y la Base Maestra de Envases antes de calcular "
+        "una declaración. Se cargan solo para esta sesión — cada vez que entres a la app "
+        "deberás volver a subir la versión vigente."
     )
     col1, col2 = st.columns(2)
     with col1:
