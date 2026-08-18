@@ -112,54 +112,9 @@ with st.sidebar:
 st.title("♻️ Calculadora Ley REP — Envases y Embalajes")
 st.caption("Genera la declaración RESIMPLE a partir del Informe de Ventas, y compara toneladas entre periodos.")
 
-tab_calc, tab_comp, tab_datos = st.tabs(["📋 Calcular declaración", "📈 Comparar periodos", "⚙️ Datos maestros"])
-
-
-# =======================================================================
-# TAB: Datos maestros (Homologación / Base Maestra) — con override opcional
-# =======================================================================
-with tab_datos:
-    st.subheader("Tabla de Homologación y Base Maestra de Envases")
-    st.write(
-        "La app trae cargadas las tablas actuales de Mizos. Si agregaste productos nuevos "
-        "o cambió alguna ficha de envase, sube aquí la versión actualizada — se usará solo "
-        "en esta sesión, no reemplaza el archivo original del proyecto."
-    )
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("**Tabla de Homologación**")
-        nuevo_h = st.file_uploader("Subir / reemplazar Homologación (.xlsx)", type=["xlsx"], key="up_homolog")
-        if nuevo_h is not None:
-            st.session_state.homolog_override = nuevo_h
-        if os.path.exists(DATA_DEFAULT["homologacion"]):
-            with open(DATA_DEFAULT["homologacion"], "rb") as f:
-                st.download_button("Descargar la actual", f.read(), file_name="tabla_homologaciones.xlsx")
-        elif st.session_state.homolog_override is None:
-            st.warning("No hay una Homologación por defecto cargada en esta app — sube una para continuar.")
-
-    with col2:
-        st.markdown("**Base Maestra de Envases**")
-        nuevo_b = st.file_uploader("Subir / reemplazar Base Maestra (.xlsx)", type=["xlsx"], key="up_base")
-        if nuevo_b is not None:
-            st.session_state.base_maestra_override = nuevo_b
-        if os.path.exists(DATA_DEFAULT["base_maestra"]):
-            with open(DATA_DEFAULT["base_maestra"], "rb") as f:
-                st.download_button("Descargar la actual", f.read(), file_name="base_maestra_envases.xlsx")
-        elif st.session_state.base_maestra_override is None:
-            st.warning("No hay una Base Maestra por defecto cargada en esta app — sube una para continuar.")
-
-    homolog_fuente, base_fuente = fuente_homologacion(), fuente_base_maestra()
-    if homolog_fuente and base_fuente:
-        try:
-            homolog_df, dup = carga.cargar_homologacion(homolog_fuente)
-            base_df = carga.cargar_base_maestra(base_fuente)
-            st.success(f"Homologación: {len(homolog_df)} SKUs · Base Maestra: {base_df['Código producto'].nunique()} productos")
-            with st.expander("Ver Tabla de Homologación"):
-                st.dataframe(homolog_df, use_container_width=True)
-            with st.expander("Ver Base Maestra de Envases"):
-                st.dataframe(base_df, use_container_width=True)
-        except Exception as e:
-            st.error(f"No se pudo leer una de las tablas maestras: {e}")
+tab_calc, tab_datos, tab_comp = st.tabs(
+    ["📋 Calcular declaración", "⚙️ Datos maestros", "📈 Comparar periodos"]
+)
 
 
 # =======================================================================
@@ -171,7 +126,13 @@ with tab_calc:
         "Nombre del periodo (para el archivo de descarga)", value="", key="periodo_label"
     )
 
-    st.subheader("2. Sube el Informe de Ventas del periodo")
+    st.subheader("2. Verifica los datos maestros")
+    st.info(
+        "Antes de calcular, revisa en la pestaña '⚙️ Datos maestros' que la Tabla de "
+        "Homologación y la Base Maestra de Envases estén con la última versión."
+    )
+
+    st.subheader("3. Sube el Informe de Ventas del periodo")
     archivo_ventas = st.file_uploader(
         "Informe de Ventas Consolidado (.xlsx)", type=["xlsx"], key="up_ventas"
     )
@@ -198,7 +159,7 @@ with tab_calc:
         componentes = carga.componentes_que_requieren_rigidez(base_df)
         rigidez_map = calculo.rigidez_por_defecto(componentes)
 
-        st.subheader("3. Calcular")
+        st.subheader("4. Calcular")
 
         if st.button("Calcular declaración", type="primary"):
             resultado = calculo.calcular(
@@ -263,6 +224,53 @@ with tab_calc:
             )
     else:
         st.info("Sube un Informe de Ventas para comenzar.")
+
+
+# =======================================================================
+# TAB: Datos maestros (Homologación / Base Maestra) — con override opcional
+# =======================================================================
+with tab_datos:
+    st.subheader("Tabla de Homologación y Base Maestra de Envases")
+    st.write(
+        "La app trae cargadas las tablas actuales de Mizos. Si agregaste productos nuevos "
+        "o cambió alguna ficha de envase, sube aquí la versión actualizada — se usará solo "
+        "en esta sesión, no reemplaza el archivo original del proyecto."
+    )
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("**Tabla de Homologación**")
+        nuevo_h = st.file_uploader("Subir / reemplazar Homologación (.xlsx)", type=["xlsx"], key="up_homolog")
+        if nuevo_h is not None:
+            st.session_state.homolog_override = nuevo_h
+        if os.path.exists(DATA_DEFAULT["homologacion"]):
+            with open(DATA_DEFAULT["homologacion"], "rb") as f:
+                st.download_button("Descargar la actual", f.read(), file_name="tabla_homologaciones.xlsx")
+        elif st.session_state.homolog_override is None:
+            st.warning("No hay una Homologación por defecto cargada en esta app — sube una para continuar.")
+
+    with col2:
+        st.markdown("**Base Maestra de Envases**")
+        nuevo_b = st.file_uploader("Subir / reemplazar Base Maestra (.xlsx)", type=["xlsx"], key="up_base")
+        if nuevo_b is not None:
+            st.session_state.base_maestra_override = nuevo_b
+        if os.path.exists(DATA_DEFAULT["base_maestra"]):
+            with open(DATA_DEFAULT["base_maestra"], "rb") as f:
+                st.download_button("Descargar la actual", f.read(), file_name="base_maestra_envases.xlsx")
+        elif st.session_state.base_maestra_override is None:
+            st.warning("No hay una Base Maestra por defecto cargada en esta app — sube una para continuar.")
+
+    homolog_fuente, base_fuente = fuente_homologacion(), fuente_base_maestra()
+    if homolog_fuente and base_fuente:
+        try:
+            homolog_df, dup = carga.cargar_homologacion(homolog_fuente)
+            base_df = carga.cargar_base_maestra(base_fuente)
+            st.success(f"Homologación: {len(homolog_df)} SKUs · Base Maestra: {base_df['Código producto'].nunique()} productos")
+            with st.expander("Ver Tabla de Homologación"):
+                st.dataframe(homolog_df, use_container_width=True)
+            with st.expander("Ver Base Maestra de Envases"):
+                st.dataframe(base_df, use_container_width=True)
+        except Exception as e:
+            st.error(f"No se pudo leer una de las tablas maestras: {e}")
 
 
 # =======================================================================
