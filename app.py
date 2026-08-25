@@ -43,26 +43,42 @@ if not st.session_state.get("autenticado", False):
     st.stop()
 
 
-# --- Paleta fija (identidad, no ranking) para las 6 subcategorías principales ---
+# --- Paleta fija (identidad, no ranking) para las 7 categorías de la vista
+# "detalle" (taxonomia.SUBCATEGORIAS_DETALLE_ORDEN): sin Cartón para bebidas,
+# con Plásticos desglosado en PP con grasa (5) / PP sin grasa (5) / Otros (7) ---
 PALETA_SUBCAT = {
-    "METALES": "#2a78d6",
-    "PLÁSTICOS": "#eb6834",
-    "PAPELES Y CARTONES": "#1baf7a",
-    "CARTÓN PARA BEBIDAS": "#eda100",
-    "VIDRIO": "#e87ba4",
-    "OTROS": "#008300",
+    "Metales": "#2a78d6",
+    "PP con grasa (5)": "#eb6834",
+    "PP sin grasa (5)": "#1baf7a",
+    "Otros (7)": "#eda100",
+    "Papeles y cartones": "#e87ba4",
+    "Vidrios": "#008300",
+    "Otros": "#4a3aa7",
 }
 COLOR_DOMICILIARIO = "#2a78d6"
 COLOR_NO_DOMICILIARIO = "#4a3aa7"
 
 PLOTLY_LAYOUT = dict(
     template="plotly_white",
-    font=dict(family="system-ui, -apple-system, Segoe UI, sans-serif", color="#0b0b0b"),
+    font=dict(family="system-ui, -apple-system, Segoe UI, sans-serif", color="#0b0b0b", size=13),
+    title_font=dict(size=17, weight="bold", color="#0b0b0b"), title_x=0, title_xanchor="left",
     plot_bgcolor="#fcfcfb",
     paper_bgcolor="#fcfcfb",
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
-    margin=dict(t=40, l=10, r=10, b=10),
+    legend=dict(
+        orientation="h", yanchor="top", y=-0.18, xanchor="left", x=0,
+        font=dict(size=13), bgcolor="rgba(0,0,0,0)",
+    ),
+    margin=dict(t=48, l=10, r=10, b=70),
+    hovermode="x unified",
+    hoverlabel=dict(
+        bgcolor="#fcfcfb", bordercolor="#e1e0d9",
+        font=dict(family="system-ui, -apple-system, Segoe UI, sans-serif", color="#0b0b0b", size=13),
+    ),
+    bargap=0.35,
+    bargroupgap=0.12,
 )
+
+HOVERTEMPLATE = "<b>%{fullData.name}</b>: %{y:,.3f} t<extra></extra>"
 
 DATA_DEFAULT = {
     "homologacion": "data/tabla_homologaciones.xlsx",
@@ -178,20 +194,20 @@ with tab_calc:
             c3.metric("No Domiciliario", f"{resultado.total_por_categoria['No Domiciliario']:.3f} t")
 
             if resultado.hay_advertencias:
-                with st.expander("⚠️ Advertencias — revisar antes de declarar", expanded=True):
+                with st.expander("⚠️ Advertencias — revisar antes de declarar", expanded=False):
                     if resultado.ventas_descartadas:
                         st.warning(f"{resultado.ventas_descartadas} filas de venta sin cantidad válida, descartadas.")
                     if resultado.homologaciones_duplicadas:
                         st.warning(f"{resultado.homologaciones_duplicadas} códigos duplicados en Homologación (se usó la primera fila).")
                     if len(resultado.ventas_no_homologadas):
                         st.warning(f"{len(resultado.ventas_no_homologadas)} artículos vendidos no están en la Tabla de Homologación (excluidos del cálculo):")
-                        st.dataframe(resultado.ventas_no_homologadas, use_container_width=True)
+                        st.dataframe(resultado.ventas_no_homologadas, width="stretch")
                     if len(resultado.skus_sin_bom):
                         st.warning(f"{len(resultado.skus_sin_bom)} combinaciones SKU/Canal no tienen ficha de envase en Base Maestra (excluidas):")
-                        st.dataframe(resultado.skus_sin_bom, use_container_width=True)
+                        st.dataframe(resultado.skus_sin_bom, width="stretch")
                     if len(resultado.materiales_no_clasificados):
                         st.error("Materiales que no calzan con la taxonomía RESIMPLE (no se incluyeron en el total):")
-                        st.dataframe(resultado.materiales_no_clasificados, use_container_width=True)
+                        st.dataframe(resultado.materiales_no_clasificados, width="stretch")
 
             comp_df = calculo.composicion_por_subcategoria(resultado)
             fig = go.Figure()
@@ -199,19 +215,26 @@ with tab_calc:
                 sub = comp_df[comp_df["Categoría"] == cat]
                 fig.add_bar(
                     x=sub["Subcategoría"], y=sub["toneladas"], name=cat,
-                    marker_color=color, marker_line_width=0,
+                    marker_color=color, marker_line_width=0, hovertemplate=HOVERTEMPLATE,
                 )
             fig.update_layout(
                 **PLOTLY_LAYOUT, barmode="group", title="Composición por material",
                 yaxis_title="Toneladas", xaxis_title=None,
             )
-            fig.update_yaxes(gridcolor="#e1e0d9", zerolinecolor="#c3c2b7")
-            fig.update_xaxes(categoryorder="array", categoryarray=taxonomia.SUBCATEGORIAS_ORDEN)
-            st.plotly_chart(fig, use_container_width=True)
+            fig.update_yaxes(gridcolor="#e1e0d9", zerolinecolor="#c3c2b7", tickformat=",.2f", ticksuffix=" t")
+            fig.update_xaxes(
+                categoryorder="array", categoryarray=taxonomia.SUBCATEGORIAS_DETALLE_ORDEN,
+                tickangle=-20, automargin=True,
+            )
+            st.plotly_chart(fig, width="stretch")
 
             st.markdown("**Detalle agregado**")
-            columnas_visibles = ["Categoría", "Materiales", "toneladas"]
-            st.dataframe(resultado.agregado[columnas_visibles], use_container_width=True)
+            tabla_detalle = comp_df.copy()
+            tabla_detalle["Subcategoría"] = pd.Categorical(
+                tabla_detalle["Subcategoría"], categories=taxonomia.SUBCATEGORIAS_DETALLE_ORDEN, ordered=True
+            )
+            tabla_detalle = tabla_detalle.sort_values(["Subcategoría", "Categoría"]).reset_index(drop=True)
+            st.dataframe(tabla_detalle, width="stretch")
 
             nombre_archivo = f"Declaracion_{(st.session_state.get('ultimo_periodo') or 'REP').replace(' ', '_')}.xlsx"
             datos_xlsx = exportar.generar_bytes(resultado, st.session_state.empresa_info)
@@ -266,9 +289,9 @@ with tab_datos:
             base_df = carga.cargar_base_maestra(base_fuente)
             st.success(f"Homologación: {len(homolog_df)} SKUs · Base Maestra: {base_df['Código producto'].nunique()} productos")
             with st.expander("Ver Tabla de Homologación"):
-                st.dataframe(homolog_df, use_container_width=True)
+                st.dataframe(homolog_df, width="stretch")
             with st.expander("Ver Base Maestra de Envases"):
-                st.dataframe(base_df, use_container_width=True)
+                st.dataframe(base_df, width="stretch")
         except Exception as e:
             st.error(f"No se pudo leer una de las tablas maestras: {e}")
 
@@ -328,35 +351,49 @@ with tab_comp:
             fig_total = go.Figure()
             for cat, color in [("Domiciliario", COLOR_DOMICILIARIO), ("No Domiciliario", COLOR_NO_DOMICILIARIO)]:
                 sub = resumen[resumen["Categoría"] == cat]
-                fig_total.add_bar(x=sub["Periodo"], y=sub["Toneladas"], name=cat, marker_color=color)
+                fig_total.add_bar(
+                    x=sub["Periodo"], y=sub["Toneladas"], name=cat,
+                    marker_color=color, marker_line_width=0, hovertemplate=HOVERTEMPLATE,
+                )
+            totales_periodo = resumen.groupby("Periodo", as_index=False, observed=True)["Toneladas"].sum()
+            fig_total.add_scatter(
+                x=totales_periodo["Periodo"], y=totales_periodo["Toneladas"],
+                mode="text", text=[f"{v:,.2f} t" for v in totales_periodo["Toneladas"]],
+                textposition="top center", textfont=dict(size=13, color="#52514e"),
+                showlegend=False, hoverinfo="skip",
+            )
             fig_total.update_layout(
                 **PLOTLY_LAYOUT, barmode="stack", title="Toneladas totales por periodo",
                 yaxis_title="Toneladas",
             )
-            fig_total.update_yaxes(gridcolor="#e1e0d9", zerolinecolor="#c3c2b7")
-            st.plotly_chart(fig_total, use_container_width=True)
+            fig_total.update_yaxes(
+                gridcolor="#e1e0d9", zerolinecolor="#c3c2b7", tickformat=",.2f", ticksuffix=" t",
+                rangemode="tozero",
+            )
+            st.plotly_chart(fig_total, width="stretch")
 
             comp = comparacion.composicion_por_periodo(combinado)
             comp["Periodo"] = pd.Categorical(comp["Periodo"], categories=orden, ordered=True)
             comp = comp.sort_values("Periodo")
 
             fig_comp = go.Figure()
-            for subcat in taxonomia.SUBCATEGORIAS_ORDEN:
+            for subcat in taxonomia.SUBCATEGORIAS_DETALLE_ORDEN:
                 sub = comp[comp["Subcategoría"] == subcat]
                 fig_comp.add_bar(
                     x=sub["Periodo"], y=sub["Toneladas"], name=subcat,
-                    marker_color=PALETA_SUBCAT[subcat],
+                    marker_color=PALETA_SUBCAT[subcat], marker_line_width=0,
+                    hovertemplate=HOVERTEMPLATE,
                 )
             fig_comp.update_layout(
                 **PLOTLY_LAYOUT, barmode="stack", title="Composición por material y periodo",
                 yaxis_title="Toneladas",
             )
-            fig_comp.update_yaxes(gridcolor="#e1e0d9", zerolinecolor="#c3c2b7")
-            st.plotly_chart(fig_comp, use_container_width=True)
+            fig_comp.update_yaxes(gridcolor="#e1e0d9", zerolinecolor="#c3c2b7", tickformat=",.2f", ticksuffix=" t")
+            st.plotly_chart(fig_comp, width="stretch")
 
             st.markdown("**Tabla de variación (toneladas y % entre periodos consecutivos)**")
             tabla_var = comparacion.tabla_variacion(combinado, orden)
-            st.dataframe(tabla_var, use_container_width=True)
+            st.dataframe(tabla_var, width="stretch")
 
             st.download_button(
                 "⬇️ Descargar tabla de variación (.csv)",

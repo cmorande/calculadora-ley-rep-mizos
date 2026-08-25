@@ -76,17 +76,29 @@ def resumen_por_periodo(df_largo: pd.DataFrame) -> pd.DataFrame:
 
 
 def composicion_por_periodo(df_largo: pd.DataFrame) -> pd.DataFrame:
-    """Toneladas por Periodo x Subcategoría principal, sumando ambas categorías."""
-    return df_largo.groupby(["Periodo", "Subcategoría"], as_index=False)["Toneladas"].sum()
+    """Toneladas por Periodo x categoría de material (vista 'detalle', ver
+    taxonomia.SUBCATEGORIAS_DETALLE_ORDEN), sumando ambas categorías."""
+    df = df_largo.copy()
+    df["Subcategoría"] = df.apply(
+        lambda r: taxonomia.subcategoria_detalle(r["Subcategoría"], r["Material"]), axis=1
+    )
+    df = df[df["Subcategoría"].notna()]
+    return df.groupby(["Periodo", "Subcategoría"], as_index=False)["Toneladas"].sum()
 
 
 def tabla_variacion(df_largo: pd.DataFrame, orden_periodos: list[str]) -> pd.DataFrame:
-    """Pivotea Periodo (columnas, en el orden dado) x Subcategoría (filas) con
-    toneladas totales, y agrega columnas de variación % entre periodos consecutivos."""
-    comp = composicion_por_periodo(df_largo)
-    pivot = comp.pivot(index="Subcategoría", columns="Periodo", values="Toneladas").fillna(0.0)
+    """Pivotea Periodo (columnas, en el orden dado) x categoría de material
+    (filas, ver taxonomia.SUBCATEGORIAS_DETALLE_ORDEN) con toneladas totales,
+    y agrega columnas de variación % entre periodos consecutivos."""
+    df = df_largo.copy()
+    df["Categoría material"] = df.apply(
+        lambda r: taxonomia.subcategoria_detalle(r["Subcategoría"], r["Material"]), axis=1
+    )
+    df = df[df["Categoría material"].notna()]
+    agrupado = df.groupby(["Periodo", "Categoría material"], as_index=False)["Toneladas"].sum()
+    pivot = agrupado.pivot(index="Categoría material", columns="Periodo", values="Toneladas").fillna(0.0)
     pivot = pivot.reindex(columns=[p for p in orden_periodos if p in pivot.columns])
-    pivot = pivot.reindex(index=taxonomia.SUBCATEGORIAS_ORDEN).fillna(0.0)
+    pivot = pivot.reindex(index=taxonomia.SUBCATEGORIAS_DETALLE_ORDEN).fillna(0.0)
 
     columnas_periodo = list(pivot.columns)
     for i in range(1, len(columnas_periodo)):

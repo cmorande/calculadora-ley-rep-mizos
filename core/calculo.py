@@ -158,15 +158,21 @@ def calcular(
 
 
 def composicion_por_subcategoria(resultado: ResultadoCalculo) -> pd.DataFrame:
-    """Toneladas por (Categoría, Subcategoría principal) — para el gráfico de composición."""
+    """Toneladas por (Categoría, categoría de material) — para el gráfico de
+    composición. Vista 'detalle': sin Cartón para bebidas, y Plásticos
+    desglosado en PP con grasa (5) / PP sin grasa (5) / Otros (7)
+    (ver taxonomia.SUBCATEGORIAS_DETALLE_ORDEN)."""
     filas = []
     for categoria, bloque in taxonomia.BLOQUES.items():
         valores = resultado.valores[categoria]
         for fila_tax, (no_pel, pel) in zip(bloque, valores):
+            subcat = taxonomia.subcategoria_detalle(fila_tax.subcategoria, fila_tax.material)
+            if subcat is None:
+                continue
             filas.append(
                 {
                     "Categoría": categoria,
-                    "Subcategoría": fila_tax.subcategoria,
+                    "Subcategoría": subcat,
                     "toneladas": no_pel + pel,
                 }
             )

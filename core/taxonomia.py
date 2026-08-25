@@ -175,6 +175,44 @@ SUBCATEGORIAS_ORDEN = [
     "OTROS",
 ]
 
+# --- Vista "detalle": sin Cartón para bebidas, y Plásticos desglosado en
+# PP con grasa (5) / PP sin grasa (5) / Otros (7). Usada por el cuadro de
+# variación y por los gráficos de composición (misma agrupación en ambos). ---
+SUBCATEGORIAS_DETALLE_ORDEN = [
+    "Metales",
+    "PP con grasa (5)",
+    "PP sin grasa (5)",
+    "Otros (7)",
+    "Papeles y cartones",
+    "Vidrios",
+    "Otros",
+]
+
+_PP_CON_GRASA = "Envases de PP que contienen sustancias con grasa (5)"
+_PP_SIN_GRASA = "Envases de PP que NO contienen sustancias con grasa (5)"
+
+_RENOMBRE_PRINCIPAL = {
+    "METALES": "Metales",
+    "PAPELES Y CARTONES": "Papeles y cartones",
+    "VIDRIO": "Vidrios",
+    "OTROS": "Otros",
+}
+
+
+def subcategoria_detalle(subcategoria: str, material: str) -> str | None:
+    """Agrupación de material para la vista 'detalle' (gráficos de composición
+    y cuadro de variación): omite Cartón para bebidas (devuelve None) y
+    desglosa Plásticos en PP con grasa (5) / PP sin grasa (5) / Otros (7)."""
+    if subcategoria == "CARTÓN PARA BEBIDAS":
+        return None
+    if subcategoria == "PLÁSTICOS":
+        if material == _PP_CON_GRASA:
+            return "PP con grasa (5)"
+        if material == _PP_SIN_GRASA:
+            return "PP sin grasa (5)"
+        return "Otros (7)"
+    return _RENOMBRE_PRINCIPAL.get(subcategoria, subcategoria)
+
 
 def indice_taxonomia(categoria: str) -> dict[tuple[str | None, str], int]:
     """Devuelve {(subcategoria2, material): posición_en_la_lista} para el bloque dado."""
