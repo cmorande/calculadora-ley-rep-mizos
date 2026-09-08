@@ -44,6 +44,7 @@ class ResultadoCalculo:
     total_por_categoria: dict[str, float]
     detalle: pd.DataFrame  # una fila por venta x componente, para auditoría
     agregado: pd.DataFrame  # agregado final por categoria/subcat2/material/peligrosidad
+    cajas_por_producto: pd.DataFrame  # cajas equivalentes por artículo, para revisar la asignación de ventas
     ventas_no_homologadas: pd.DataFrame
     skus_sin_bom: pd.DataFrame
     materiales_no_clasificados: pd.DataFrame
@@ -97,6 +98,36 @@ def calcular(
     )
     detalle = detalle.loc[detalle["_merge"] == "both"].drop(columns=["_merge"]).copy()
 
+    # 2b) Auditoría: cajas equivalentes por artículo (para revisar la asignación
+    #     de ventas). cajas_equivalentes = Cantidad vendida * Factor_conversion.
+    con_ficha = {
+        (str(s), str(c))
+        for s, c in detalle[["sku_rep", "Canal"]].drop_duplicates().itertuples(index=False)
+    }
+    cols_prod = ["ID Artículo", "sku_rep", "Canal"]
+    if "Descripción" in matched.columns:
+        cols_prod.insert(1, "Descripción")
+    cajas_por_producto = (
+        matched.groupby(cols_prod, dropna=False)
+        .agg(
+            **{
+                "Cantidad vendida": ("Cantidad", "sum"),
+                "Factor conversión": ("Factor_conversion", "first"),
+                "Cajas equivalentes": ("cajas_equivalentes", "sum"),
+                "Líneas de venta": ("Cantidad", "size"),
+            }
+        )
+        .reset_index()
+        .rename(columns={"sku_rep": "Código producto REP"})
+    )
+    cajas_por_producto["En cálculo"] = [
+        "Sí" if (str(s), str(c)) in con_ficha else "No (sin ficha de envase)"
+        for s, c in zip(cajas_por_producto["Código producto REP"], cajas_por_producto["Canal"])
+    ]
+    cajas_por_producto = cajas_por_producto.sort_values(
+        "Cajas equivalentes", ascending=False
+    ).reset_index(drop=True)
+
     # 3) Peso por fila (venta x componente)
     detalle["peso_g"] = detalle["cajas_equivalentes"] * detalle["Peso caja"]
 
@@ -149,6 +180,7 @@ def calcular(
         total_por_categoria=total_por_categoria,
         detalle=detalle,
         agregado=agregado,
+        cajas_por_producto=cajas_por_producto,
         ventas_no_homologadas=ventas_no_homologadas,
         skus_sin_bom=skus_sin_bom,
         materiales_no_clasificados=materiales_no_clasificados,

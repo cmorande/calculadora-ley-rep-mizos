@@ -236,6 +236,23 @@ with tab_calc:
             tabla_detalle = tabla_detalle.sort_values(["Subcategoría", "Categoría"]).reset_index(drop=True)
             st.dataframe(tabla_detalle, width="stretch")
 
+            with st.expander("📦 Cajas por producto — revisar asignación de ventas", expanded=False):
+                st.caption(
+                    "Cajas equivalentes = Cantidad vendida × Factor de conversión (Tabla de "
+                    "Homologación). Es la base sobre la que se calcula el peso de envases de cada "
+                    "artículo. Revisa que la cantidad y el factor sean los esperados. Los artículos "
+                    "marcados como 'No (sin ficha de envase)' están homologados pero no tienen "
+                    "combinación SKU/Canal en la Base Maestra, así que no suman toneladas."
+                )
+                cajas_df = resultado.cajas_por_producto
+                st.dataframe(cajas_df, width="stretch")
+                st.download_button(
+                    "⬇️ Descargar cajas por producto (.csv)",
+                    data=cajas_df.to_csv(index=False).encode("utf-8-sig"),
+                    file_name="cajas_por_producto.csv",
+                    mime="text/csv",
+                )
+
             nombre_archivo = f"Declaracion_{(st.session_state.get('ultimo_periodo') or 'REP').replace(' ', '_')}.xlsx"
             datos_xlsx = exportar.generar_bytes(resultado, st.session_state.empresa_info)
             st.download_button(
